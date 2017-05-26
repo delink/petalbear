@@ -6,6 +6,7 @@ import configparser
 import os
 import requests
 import json
+import csv
 requests.packages.urllib3.disable_warnings()
 
 class petalbear:
@@ -104,6 +105,16 @@ class petalbear:
 		else:
 			return None
 
+	# Update a segment with a given JSON payload
+	def update_segment(self,list_id,segment_id,payload):
+
+		result = self.api("PATCH",'/lists/' + list_id + '/segments/' + str(segment_id),payload)
+
+		if 'id' in result:
+			return result['id']
+		else:
+			return None
+
 	# Pull the members of a segment
 	def get_segment_members(self,list_id,segment_id):
 
@@ -134,6 +145,8 @@ class petalbear:
 
 	def create_autoload_segment(self,list_id,ravcamp):
 
+		self.ravcamp = ravcamp
+
 		payload = {
 			'name': 'Autoload',
 			'options': {
@@ -143,7 +156,7 @@ class petalbear:
 						'condition_type': 'TextMerge',
 						'field': 'RAVCAMP',
 						'op': 'not',
-						'value': ravcamp
+						'value': self.ravcamp
 					}
 				]
 			}
@@ -153,14 +166,34 @@ class petalbear:
 
 		if segment_id is None:
 			segment_id = self.create_segment(list_id,payload)
+		else:
+			segment_id = self.update_segment(list_id,segment_id,payload)
 
 		return segment_id
 
-	def load_ravcodes_to_segment(self,list_id,segment_id):
+	def assign_ravcodes_to_segment(self,list_id,segment_id):
 
 		result = self.get_segment_members(list_id,segment_id)
 
 		for member in result['members']:
 			if member['status'] == 'subscribed':
-				result = self.update_member(list_id,member['id'],'petalbear','code1')
+				result = self.update_member(list_id,member['id'],self.ravcamp,self.get_ravcode())
 				print(result['email_address'])
+
+	def load_ravcodes(self,ravcodesfile):
+
+		self.ravcodes = []
+
+		try:
+			with open(ravcodesfile, 'r') as ravcodesfilehandle:
+				ravcodestack = csv.reader(ravcodesfilehandle)
+				# Skip header row
+				next(ravcodesfilehandle)
+				for code in ravcodestack:
+					self.ravcodes.insert(0,code[0])
+		except:
+			raise
+
+	def get_ravcode(self):
+		
+		return self.ravcodes.pop()
