@@ -69,3 +69,19 @@ class petalbear:
 				return list['id']
 
 		return None
+
+	# Get the ID of a Segment from its name
+	def get_segment_id_by_name(self,list_id,segment_name):
+		
+		payload = {
+			'fields': 'segments.id,segments.name',
+			'count': 50,
+			'offset': 0
+		}
+
+		result = self.api('GET','/lists/' + list_id + '/segments',payload)
+		for segment in result['segments']:
+			if segment['name'] == segment_name:
+				return segment['id']
+
+		return None
