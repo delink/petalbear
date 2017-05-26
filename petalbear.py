@@ -5,4 +5,5 @@ import libpetalbear
 pb = libpetalbear.petalbear('/Users/brian/.petalbearrc')
 
 list_id = pb.get_list_id_by_name('Test List')
-print(pb.get_segment_id_by_name(list_id,'petalbear'))
+segment_id = pb.create_autoload_segment(list_id,'petalbear')
+pb.load_ravcodes_to_segment(list_id,segment_id)
