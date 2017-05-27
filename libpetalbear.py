@@ -3,7 +3,6 @@
 #####
 
 import configparser
-import os
 import requests
 import json
 import csv
