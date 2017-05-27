@@ -22,6 +22,7 @@ class petalbear:
 		apikey_parts = self.config['mailchimp']['apikey'].split('-')
 		self.apikey = self.config['mailchimp']['apikey']
 		self.url = "https://" + apikey_parts[1] + ".api.mailchimp.com/3.0"
+		self.list_id = self.get_list_id_by_name(self.config['mailchimp']['list_name'])
 
 	# Generic API method to be used by all other methods when reaching out to mailchimp.
 	# No pagination loops should happen inside of here. One and done.
@@ -61,6 +62,7 @@ class petalbear:
 		# function to do something with it.
 		return body
 
+
 	### Mailchimp Methods
 
 	# Get the ID of a List from its name
@@ -68,37 +70,51 @@ class petalbear:
 		
 		payload = {
 			'fields': 'lists.id,lists.name',
-			'count': 50,
+			'count': 10,
 			'offset': 0
 		}
 
-		result = self.api('GET','/lists',payload)
-		for list in result['lists']:
-			if list['name'] == list_name:
-				return list['id']
+		while True:
+			result = self.api('GET','/lists',payload)
+
+			if len(result['lists']) == 0:
+				break
+
+			for list in result['lists']:
+				if list['name'] == list_name:
+					return list['id']
+
+			payload['offset'] += payload['count']
 
 		return None
 
 	# Get the ID of a Segment from its name
-	def get_segment_id_by_name(self,list_id,segment_name):
+	def get_segment_id_by_name(self,segment_name):
 		
 		payload = {
 			'fields': 'segments.id,segments.name',
-			'count': 50,
+			'count': 10,
 			'offset': 0
 		}
 
-		result = self.api('GET','/lists/' + list_id + '/segments',payload)
-		for segment in result['segments']:
-			if segment['name'] == segment_name:
-				return segment['id']
+		while True:
+			result = self.api('GET','/lists/' + self.list_id + '/segments',payload)
+
+			if len(result['segments']) == 0:
+				break
+
+			for segment in result['segments']:
+				if segment['name'] == segment_name:
+					return segment['id']
+
+			payload['offset'] += payload['count']
 
 		return None
 
 	# Create a new segment from a given JSON payload
-	def create_segment(self,list_id,payload):
+	def create_segment(self,payload):
 
-		result = self.api("POST",'/lists/' + list_id + '/segments',payload)
+		result = self.api("POST",'/lists/' + self.list_id + '/segments',payload)
 
 		if 'id' in result:
 			return result['id']
@@ -106,9 +122,9 @@ class petalbear:
 			return None
 
 	# Update a segment with a given JSON payload
-	def update_segment(self,list_id,segment_id,payload):
+	def update_segment(self,segment_id,payload):
 
-		result = self.api("PATCH",'/lists/' + list_id + '/segments/' + str(segment_id),payload)
+		result = self.api("PATCH",'/lists/' + self.list_id + '/segments/' + str(segment_id),payload)
 
 		if 'id' in result:
 			return result['id']
@@ -116,19 +132,19 @@ class petalbear:
 			return None
 
 	# Pull the members of a segment
-	def get_segment_members(self,list_id,segment_id):
+	def get_segment_members_page(self,segment_id,count):
 
 		payload = {
 			'fields': 'members.id,members.email_address,members.status,members.merge_fields',
-			'count': 50,
+			'count': count,
 			'offset': 0,
 		}
 
-		result = self.api("GET",'/lists/' + list_id + '/segments/' + str(segment_id) + '/members',payload)
+		result = self.api("GET",'/lists/' + self.list_id + '/segments/' + str(segment_id) + '/members',payload)
 
 		return result
 
-	def update_member(self,list_id,subscriber_hash,ravcamp,ravcode):
+	def update_member(self,subscriber_hash,ravcamp,ravcode):
 
 		payload = {
 			'merge_fields': {
@@ -137,13 +153,13 @@ class petalbear:
 			}
 		}
 
-		result = self.api("PATCH",'/lists/' + list_id + '/members/' + subscriber_hash,payload)
+		result = self.api("PATCH",'/lists/' + self.list_id + '/members/' + subscriber_hash,payload)
 
 		return result
 
 	### Petalbear Methods
 
-	def create_autoload_segment(self,list_id,ravcamp):
+	def create_autoload_segment(self,ravcamp):
 
 		self.ravcamp = ravcamp
 
@@ -162,23 +178,27 @@ class petalbear:
 			}
 		}
 
-		segment_id = self.get_segment_id_by_name(list_id,'Autoload')
+		segment_id = self.get_segment_id_by_name('Autoload')
 
 		if segment_id is None:
-			segment_id = self.create_segment(list_id,payload)
+			segment_id = self.create_segment(payload)
 		else:
-			segment_id = self.update_segment(list_id,segment_id,payload)
+			segment_id = self.update_segment(segment_id,payload)
 
 		return segment_id
 
-	def assign_ravcodes_to_segment(self,list_id,segment_id):
+	def assign_ravcodes_to_segment(self,segment_id,count):
 
-		result = self.get_segment_members(list_id,segment_id)
+		while True:
 
-		for member in result['members']:
-			if member['status'] == 'subscribed':
-				result = self.update_member(list_id,member['id'],self.ravcamp,self.get_ravcode())
-				print(result['email_address'])
+			result = self.get_segment_members_page(segment_id,count)
+
+			if len(result['members']) == 0:
+				break
+
+			for member in result['members']:
+				if member['status'] == 'subscribed':
+					result = self.update_member(member['id'],self.ravcamp,self.get_ravcode())
 
 	def load_ravcodes(self,ravcodesfile):
 

@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
+#####
+# petalbear - Load ravelry codes into Mailchimp merge fields
+#####
 
 import libpetalbear
+import argparse
+import os
 
-pb = libpetalbear.petalbear('/Users/brian/.petalbearrc')
+optarg = argparse.ArgumentParser(prog="petalbear")
+optarg.add_argument('--config','-f',help="Configuration file for petalbear, defaults to ~/.petalbearrc",default=os.path.expanduser("~/.petalbearrc"))
+optarg.add_argument('--ravcodes','-r',help="CSV file from ravlery containing codes. No default.",required=True)
+optarg.add_argument('--campaign','-c',help="Name of ravelry campaign. No default.",required=True)
+config = optarg.parse_args()
 
-pb.load_ravcodes('/Users/brian/Desktop/Tacit.csv')
+pb = libpetalbear.petalbear(config.config)
 
-list_id = pb.get_list_id_by_name('Test List')
-segment_id = pb.create_autoload_segment(list_id,'testravcodes2')
-pb.assign_ravcodes_to_segment(list_id,segment_id)
+pb.load_ravcodes(config.ravcodes)
+
+segment_id = pb.create_autoload_segment(config.campaign)
+pb.assign_ravcodes_to_segment(segment_id,10)
