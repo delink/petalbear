@@ -8,9 +8,9 @@ import argparse
 import os
 
 optarg = argparse.ArgumentParser(prog="petalbear")
-optarg.add_argument('--config','-f',help="Configuration file for petalbear, defaults to ~/.petalbearrc",default=os.path.expanduser("~/.petalbearrc"))
-optarg.add_argument('--ravcodes','-r',help="CSV file from ravlery containing codes. No default.",required=True)
-optarg.add_argument('--campaign','-c',help="Name of ravelry campaign. No default.",required=True)
+optarg.add_argument('-f','--config',help="Configuration file for petalbear, defaults to ~/.petalbearrc",default=os.path.expanduser("~/.petalbearrc"))
+optarg.add_argument('-r','--ravcodes',help="CSV file from ravlery containing codes. No default.",required=True)
+optarg.add_argument('-c','--campaign',help="Name of ravelry campaign. No default.",required=True)
 config = optarg.parse_args()
 
 pb = libpetalbear.petalbear(config.config)
