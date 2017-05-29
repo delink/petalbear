@@ -2,16 +2,21 @@
 # libpetalbear.py - Load ravelry one-use codes into Mailchimp merge fields
 #####
 
+import uuid
 import configparser
 import requests
 import json
 import csv
+import logging
 requests.packages.urllib3.disable_warnings()
 
 class petalbear:
 
 	# Take the passed in configuration file and get ready to Mailchimp
 	def __init__(self,conffilename):
+		self.uuid = uuid.uuid4()
+		logging.info("action=\"create uuid\" uuid=\"{}\"".format(self.uuid))
+		logging.info("uuid=\"{}\" action=\"read config\" filename=\"{}\"".format(self.uuid,conffilename))
 		self.conffilename = conffilename
 		self.config = configparser.ConfigParser()
 		try:
@@ -22,6 +27,7 @@ class petalbear:
 		self.apikey = self.config['mailchimp']['apikey']
 		self.url = "https://" + apikey_parts[1] + ".api.mailchimp.com/3.0"
 		self.list_id = self.get_list_id_by_name(self.config['mailchimp']['list_name'])
+		logging.info("uuid=\"{}\" action=\"read config\" result=\"success\" list_name=\"{}\" list_id=\"{}\"".format(self.uuid,self.config['mailchimp']['list_name'],self.list_id))
 
 	# Generic API method to be used by all other methods when reaching out to mailchimp.
 	# No pagination loops should happen inside of here. One and done.
@@ -32,18 +38,22 @@ class petalbear:
 
 		# GET requests
 		if method.lower() == "get":
+			logging.debug("uuid=\"{}\" action=\"api request\" method=\"get\" url=\"{}\"".format(self.uuid,request_url))
 			response = requests.get(request_url, auth=('apikey', self.apikey), params=payload, verify=False)
 
 		# POST requests
 		elif method.lower() == "post":
+			logging.debug("uuid=\"{}\" action=\"api request\" method=\"post\" url=\"{}\"".format(self.uuid,request_url))
 			response = requests.post(request_url, auth=('apikey', self.apikey), json=payload, verify=False)
 
 		# PATCH requests
 		elif method.lower() == "patch":
+			logging.debug("uuid=\"{}\" action=\"api request\" method=\"patch\" url=\"{}\"".format(self.uuid,request_url))
 			response = requests.patch(request_url, auth=('apikey', self.apikey), json=payload, verify=False)
 
 		# Blow up on bogus methods (or methods we can't handle yet)
 		else:
+			logging.error("uuid=\"{}\" action=\"api request\" method=\"unknown\" url=\"{}\"".format(self.uuid,request_url))
 			raise ValueError("Unknown method: {}".format(method))
 			return None
 
@@ -52,13 +62,13 @@ class petalbear:
 			response.raise_for_status()
 			body = response.json()
 		except requests.exceptions.HTTPError as err:
-			print("Error: {} {}".format(str(response.status_code), err))
-			print(json.dumps(response.json(), indent=4))
+			logging.error("uuid=\"{}\" action=\"api result\" result=\"failure\" http_error=\"{}\" url=\"{}\"".format(self.uuid,str(response.status_code),request_url))
 		except ValueError:
-			print("Cannot decode json, got %s" % response.text)
+			logging.error("uuid=\"{}\" action=\"api request\" result=\"failure\" url=\"{}\" message=\"{}\"".format(self.uuid,request_url,response.text))
 
 		# Everything worked. Pass the returned data back to the calling 
 		# function to do something with it.
+		logging.debug("uuid=\"{}\" action=\"api request\" result=\"success\" url=\"{}\"".format(self.uuid,request_url))
 		return body
 
 
@@ -73,6 +83,7 @@ class petalbear:
 			'offset': 0
 		}
 
+		logging.debug("uuid=\"{}\" action=\"get list id\" list_name=\"{}\"".format(self.uuid,list_name))
 		while True:
 			result = self.api('GET','/lists',payload)
 
@@ -81,10 +92,12 @@ class petalbear:
 
 			for list in result['lists']:
 				if list['name'] == list_name:
+					logging.debug("uuid=\"{}\" action=\"get list id\" result=\"success\" list_name=\"{}\" list_id=\"{}\"".format(self.uuid,list_name,list['id']))
 					return list['id']
 
 			payload['offset'] += payload['count']
 
+		logging.debug("uuid=\"{}\" action=\"get list id\" result=\"failure\" list_name=\"{}\"".format(self.uuid,list_name))
 		return None
 
 	# Get the ID of a Segment from its name
@@ -96,6 +109,7 @@ class petalbear:
 			'offset': 0
 		}
 
+		logging.debug("uuid=\"{}\" action=\"get segment id\" segment_name=\"{}\"".format(self.uuid,segment_name))
 		while True:
 			result = self.api('GET','/lists/' + self.list_id + '/segments',payload)
 
@@ -104,30 +118,38 @@ class petalbear:
 
 			for segment in result['segments']:
 				if segment['name'] == segment_name:
+					logging.debug("uuid=\"{}\" action=\"get segment id\" result=\"success\" segment_name=\"{}\" segment_id=\"{}\"".format(self.uuid,segment_name,segment['id']))
 					return segment['id']
 
 			payload['offset'] += payload['count']
 
+		logging.debug("uuid=\"{}\" action=\"get segment id\" result=\"failure\" segment_name=\"{}\"".format(self.uuid,segment_name))
 		return None
 
 	# Create a new segment from a given JSON payload
 	def create_segment(self,payload):
 
+		logging.info("uuid=\"{}\" action=\"create segment\" segment_name=\"{}\"".format(self.uuid,segment_name))
 		result = self.api("POST",'/lists/' + self.list_id + '/segments',payload)
 
 		if 'id' in result:
+			logging.info("uuid=\"{}\" action=\"create segment\" result=\"success\" segment_name=\"{}\" segment_id=\"{}\"".format(self.uuid,segment_name,segment['id']))
 			return result['id']
 		else:
+			logging.info("uuid=\"{}\" action=\"create segment\" result=\"failure\" segment_name=\"{}\"".format(self.uuid,segment_name))
 			return None
 
 	# Update a segment with a given JSON payload
 	def update_segment(self,segment_id,payload):
 
+		logging.info("uuid=\"{}\" action=\"update segment\" segment_id=\"{}\"".format(self.uuid,segment_id))
 		result = self.api("PATCH",'/lists/' + self.list_id + '/segments/' + str(segment_id),payload)
 
 		if 'id' in result:
+			logging.info("uuid=\"{}\" action=\"update segment\" result=\"success\" segment_id=\"{}\"".format(self.uuid,segment_id))
 			return result['id']
 		else:
+			logging.info("uuid=\"{}\" action=\"update segment\" result=\"failure\" segment_id=\"{}\"".format(self.uuid,segment_id))
 			return None
 
 	# Pull the members of a segment
@@ -139,8 +161,10 @@ class petalbear:
 			'offset': 0,
 		}
 
+		logging.info("uuid=\"{}\" action=\"get segment page\" segment_id=\"{}\"".format(self.uuid,segment_id))
 		result = self.api("GET",'/lists/' + self.list_id + '/segments/' + str(segment_id) + '/members',payload)
 
+		logging.info("uuid=\"{}\" action=\"get segment page\" result=\"success\" segment_id=\"{}\" count=\"{}\"".format(self.uuid,segment_id,len(result['members'])))
 		return result
 
 	def update_member(self,subscriber_hash,ravcamp,ravcode):
@@ -152,6 +176,7 @@ class petalbear:
 			}
 		}
 
+		logging.info("uuid=\"{}\" action=\"update member\" subscriber_hash=\"{}\" campaign=\"{}\" code=\"{}\"".format(self.uuid,subscriber_hash,ravcamp,ravcode))
 		result = self.api("PATCH",'/lists/' + self.list_id + '/members/' + subscriber_hash,payload)
 
 		return result
@@ -162,6 +187,7 @@ class petalbear:
 
 		self.ravcamp = ravcamp
 
+		logging.info("uuid=\"{}\" action=\"create autoload segment\" campaign=\"{}\"".format(self.uuid,self.ravcamp))
 		payload = {
 			'name': 'Autoload',
 			'options': {
@@ -184,24 +210,34 @@ class petalbear:
 		else:
 			segment_id = self.update_segment(segment_id,payload)
 
+		logging.info("uuid=\"{}\" action=\"create autoload segment\" result=\"success\" campaign=\"{}\" segment_id=\"{}\"".format(self.uuid,self.ravcamp,segment_id))
 		return segment_id
 
 	def assign_ravcodes_to_segment(self,segment_id,count):
 
+		logging.info("uuid=\"{}\" action=\"assign codes to segment\" segment_id=\"{}\"".format(self.uuid,segment_id))
 		while True:
 
 			result = self.get_segment_members_page(segment_id,count)
 
 			if len(result['members']) == 0:
+				logging.info("uuid=\"{}\" action=\"assign codes to segment\" result=\"success\" segment_id=\"{}\"".format(self.uuid,segment_id))
 				break
 
 			for member in result['members']:
+				logging.info("uuid=\"{}\" action=\"process member\" email_address=\"{}\" subscriber_hash=\"{}\"".format(self.uuid,member['email_address'],member['id']))
 				if member['status'] == 'subscribed':
-					result = self.update_member(member['id'],self.ravcamp,self.get_ravcode())
+					ravcode = self.get_ravcode()
+					result = self.update_member(member['id'],self.ravcamp,ravcode)
+					logging.info("uuid=\"{}\" action=\"process member\" result=\"success\" email_address=\"{}\" subscriber_hash=\"{}\" ravcode=\"{}\"".format(self.uuid,member['email_address'],member['id'],ravcode))
+				else:
+					logging.info("uuid=\"{}\" action=\"process member\" result=\"failure\" status=\"{}\" email_address=\"{}\"".format(self.uuid,member['status'],member['email_address']))
 
 	def load_ravcodes(self,ravcodesfile):
 
 		self.ravcodes = []
+
+		logging.info("uuid=\"{}\" action=\"load ravcodes\" filename=\"{}\"".format(self.uuid,ravcodesfile))
 
 		try:
 			with open(ravcodesfile, 'r') as ravcodesfilehandle:
@@ -210,9 +246,12 @@ class petalbear:
 				next(ravcodesfilehandle)
 				for code in ravcodestack:
 					self.ravcodes.insert(0,code[0])
+				logging.info("uuid=\"{}\" action=\"load ravcodes\" result=\"success\" filename=\"{}\" count=\"{}\"".format(self.uuid,ravcodesfile,len(self.ravcodes)))
 		except:
 			raise
 
 	def get_ravcode(self):
 		
-		return self.ravcodes.pop()
+		ravcode = self.ravcodes.pop()
+		logging.debug("uuid=\"{}\" action=\"get ravcode\" result=\"success\" code=\"{}\" count=\"{}\"".format(self.uuid,ravcode,len(self.ravcodes)))
+		return ravcode
