@@ -129,14 +129,14 @@ class petalbear:
 	# Create a new segment from a given JSON payload
 	def create_segment(self,payload):
 
-		logging.info("uuid=\"{}\" action=\"create segment\" segment_name=\"{}\"".format(self.uuid,segment_name))
+		logging.info("uuid=\"{}\" action=\"create segment\" segment_name=\"{}\"".format(self.uuid,payload['name']))
 		result = self.api("POST",'/lists/' + self.list_id + '/segments',payload)
 
 		if 'id' in result:
-			logging.info("uuid=\"{}\" action=\"create segment\" result=\"success\" segment_name=\"{}\" segment_id=\"{}\"".format(self.uuid,segment_name,segment['id']))
+			logging.info("uuid=\"{}\" action=\"create segment\" result=\"success\" segment_name=\"{}\" segment_id=\"{}\"".format(self.uuid,payload['name'],result['id']))
 			return result['id']
 		else:
-			logging.info("uuid=\"{}\" action=\"create segment\" result=\"failure\" segment_name=\"{}\"".format(self.uuid,segment_name))
+			logging.info("uuid=\"{}\" action=\"create segment\" result=\"failure\" segment_name=\"{}\"".format(self.uuid,payload['name']))
 			return None
 
 	# Update a segment with a given JSON payload
