@@ -8,6 +8,7 @@ import requests
 import json
 import csv
 import logging
+import hashlib
 requests.packages.urllib3.disable_warnings()
 
 class petalbear:
@@ -63,8 +64,10 @@ class petalbear:
 			body = response.json()
 		except requests.exceptions.HTTPError as err:
 			logging.error("uuid=\"{}\" action=\"api result\" result=\"failure\" http_error=\"{}\" url=\"{}\"".format(self.uuid,str(response.status_code),request_url))
+			raise
 		except ValueError:
 			logging.error("uuid=\"{}\" action=\"api request\" result=\"failure\" url=\"{}\" message=\"{}\"".format(self.uuid,request_url,response.text))
+			raise
 
 		# Everything worked. Pass the returned data back to the calling 
 		# function to do something with it.
@@ -166,6 +169,24 @@ class petalbear:
 
 		logging.info("uuid=\"{}\" action=\"get segment page\" result=\"success\" segment_id=\"{}\" count=\"{}\"".format(self.uuid,segment_id,len(result['members'])))
 		return result
+
+	def get_member_status(self,email_address):
+
+		payload = {
+			'fields': 'id,email_address,status',
+		}
+
+		logging.info("uuid=\"{}\" action=\"get member status\" email_address=\"{}\"".format(self.uuid,email_address))
+
+		try:
+			result = self.api("GET",'/lists/' + self.list_id + '/members/' + str(hashlib.md5(email_address).hexdigest()),payload)
+			status = result['status']
+		except requests.exceptions.HTTPError as err:
+			status = "unknown"
+
+		logging.info("uuid=\"{}\" action=\"get member status\" result=\"success\" email_address=\"{}\" status=\"{}\"".format(self.uuid,email_address,status))
+
+		return status
 
 	def update_member(self,subscriber_hash,ravcamp,ravcode):
 
