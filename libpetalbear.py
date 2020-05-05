@@ -176,7 +176,7 @@ class petalbear:
 			'fields': 'id,email_address,status',
 		}
 
-		logging.info("uuid=\"{}\" action=\"get member status\" email_address=\"{}\"".format(self.uuid,email_address))
+		logging.info("uuid=\"{}\" action=\"get member status\" email_address=\"{}\"".format(self.uuid,email_address.decode("ascii")))
 
 		try:
 			result = self.api("GET",'/lists/' + self.list_id + '/members/' + str(hashlib.md5(email_address).hexdigest()),payload)
@@ -184,7 +184,7 @@ class petalbear:
 		except requests.exceptions.HTTPError as err:
 			status = "unknown"
 
-		logging.info("uuid=\"{}\" action=\"get member status\" result=\"success\" email_address=\"{}\" status=\"{}\"".format(self.uuid,email_address,status))
+		logging.info("uuid=\"{}\" action=\"get member status\" result=\"success\" email_address=\"{}\" status=\"{}\"".format(self.uuid,email_address.decode("ascii"),status))
 
 		return status
 
